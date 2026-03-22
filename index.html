@@ -1121,10 +1121,13 @@
     let _imgBase64 = null;
     let _imgType  = null;
 
-    // Restore API key from session on load
+    // Restore API key from session on load and re-evaluate button state
     document.addEventListener('DOMContentLoaded', () => {
       const saved = sessionStorage.getItem('mro-api-key');
-      if (saved) document.getElementById('api-key-input').value = saved;
+      if (saved) {
+        document.getElementById('api-key-input').value = saved;
+        _updateScanBtn();   // ← must call after restoring so button enables if image already set
+      }
     });
 
     document.getElementById('api-key-input').addEventListener('input', function () {
@@ -1138,6 +1141,9 @@
       const f = e.target.files[0];
       if (f) _loadImage(f);
     });
+
+    // Show initial hint on page load
+    _updateScanBtn();
 
     (() => {
       const zone = document.getElementById('upload-zone');
@@ -1166,8 +1172,26 @@
     }
 
     function _updateScanBtn() {
-      const hasKey = document.getElementById('api-key-input').value.trim().length > 10;
-      document.getElementById('scan-btn').disabled = !(hasKey && _imgBase64);
+      const keyVal  = document.getElementById('api-key-input').value.trim();
+      const hasKey  = keyVal.length > 0;
+      const hasImg  = !!_imgBase64;
+      const btn     = document.getElementById('scan-btn');
+      btn.disabled  = !(hasKey && hasImg);
+
+      // Show a helpful hint about what's still missing
+      if (!hasKey && !hasImg) {
+        _setStatus('Enter your Anthropic API key and upload a form image to enable scanning.', 'info');
+      } else if (!hasKey) {
+        _setStatus('Enter your Anthropic API key above to enable scanning.', 'info');
+      } else if (!hasImg) {
+        _setStatus('Upload a photo or scan of the form above to enable scanning.', 'info');
+      } else {
+        // Both present — clear any prior "missing" hint (but keep success/error messages)
+        const el = document.getElementById('ai-status');
+        if (el.classList.contains('info') && el.textContent.includes('enable scanning')) {
+          el.classList.remove('visible');
+        }
+      }
     }
 
     function _setStatus(msg, type) {
